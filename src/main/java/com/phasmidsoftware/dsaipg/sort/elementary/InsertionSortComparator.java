@@ -3,16 +3,15 @@
  */
 package com.phasmidsoftware.dsaipg.sort.elementary;
 
+import java.io.IOException;
+import java.util.Comparator;
+
 import com.phasmidsoftware.dsaipg.sort.Helper;
+import static com.phasmidsoftware.dsaipg.sort.InstrumentedComparatorHelper.getRunsConfig;
 import com.phasmidsoftware.dsaipg.sort.Sort;
 import com.phasmidsoftware.dsaipg.sort.SortWithHelper;
 import com.phasmidsoftware.dsaipg.util.Config;
 import com.phasmidsoftware.dsaipg.util.Config_Benchmark;
-
-import java.io.IOException;
-import java.util.Comparator;
-
-import static com.phasmidsoftware.dsaipg.sort.InstrumentedComparatorHelper.getRunsConfig;
 
 /**
  * A class for performing insertion sort using a comparator, extending functionality from SortWithHelper.
@@ -65,8 +64,24 @@ public class InsertionSortComparator<X> extends SortWithHelper<X> {
     public void sort(X[] xs, int from, int to) {
         final Helper<X> helper = getHelper();
 
+    // 边界检查
+    if (xs == null || xs.length == 0 || from >= to) return;
+
+    for (int i = from + 1; i < to; i++) {
+        X currentValue = xs[i]; // 当前需要插入的值
+        int j = i - 1;
+
+        // 采用 `helper.less()` 进行比较，保证记录交换次数
+        while (j >= from && helper.less(currentValue, xs[j])) {
+            xs[j + 1] = xs[j];  // 右移元素
+            j--;
+        }
+
+        xs[j + 1] = currentValue; // 插入元素
+    }
+
         // TO BE IMPLEMENTED 
-throw new RuntimeException("implementation missing");
+// throw new RuntimeException("implementation missing");
     }
 
     public static final String DESCRIPTION = "Insertion sort";

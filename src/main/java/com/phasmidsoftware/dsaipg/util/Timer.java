@@ -63,11 +63,49 @@ public class Timer {
      * @param <U>          the type which is the result of function and the input to postFunction (if any).
      * @return the average milliseconds per repetition.
      */
-    public <T, U> double repeat(int n, boolean warmup, Supplier<T> supplier, Function<T, U> function, UnaryOperator<T> preFunction, Consumer<U> postFunction) {
-        // TO BE IMPLEMENTED : note that the timer is running when this method is called and should still be running when it returns.
-         return 0;
-        // END SOLUTION
+    public <T, U> double repeat(int n, boolean warmup, Supplier<T> supplier, Function<T, U> function, 
+                            UnaryOperator<T> preFunction, Consumer<U> postFunction) {
+    // 如果是预热阶段，则执行n次，但不计入计时
+    if (warmup) {
+        for (int i = 0; i < n; i++) {
+            T input = supplier.get();
+            if (preFunction != null) input = preFunction.apply(input);
+            function.apply(input);
+            if (postFunction != null) postFunction.accept(null);
+        }
+        return 0; // 预热阶段不记录时间
     }
+
+    // 开始正式计时
+    for (int i = 0; i < n; i++) {
+        T input = supplier.get();
+
+        // 处理 preFunction（若存在）
+        if (preFunction != null) {
+            pause();    // 暂停计时以处理
+            input = preFunction.apply(input);
+            resume();   // 恢复计时
+        }
+
+        // 执行核心 function
+        U result = function.apply(input);
+        lap(); // 记录一个 lap
+
+        // 处理 postFunction（若存在）
+        if (postFunction != null) {
+            pause();    // 暂停计时
+            postFunction.accept(result);
+            resume();   // 恢复计时
+        }
+    }
+
+    // 结束计时并计算平均时间
+    pause(); 
+    final double timePerIteration = meanLapTime(); 
+    resume();
+
+    return timePerIteration;
+}
 
     /**
      * Updates the status display by printing progress markers or a decrement value based on the input parameters.
@@ -240,7 +278,9 @@ public class Timer {
      */
     private static long getClock() {
         // TO BE IMPLEMENTED 
-         return 0;
+        return System.nanoTime();
+
+        //  return 0;
         // END SOLUTION
     }
 
@@ -253,7 +293,7 @@ public class Timer {
      */
     private static double toMillisecs(long ticks) {
         // TO BE IMPLEMENTED 
-         return 0;
+         return ticks * 1.0E-6;
         // END SOLUTION
     }
 
