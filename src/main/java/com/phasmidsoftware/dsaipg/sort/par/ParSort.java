@@ -6,6 +6,8 @@ package com.phasmidsoftware.dsaipg.sort.par;
 
 import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ForkJoinPool;
 
 /**
  * ParSort is a class implementing a parallel sorting algorithm.
@@ -26,6 +28,7 @@ final class ParSort {
      * the advantages of parallelism.
      */
     public static int cutoff = 1000;
+    private static final Executor EXECUTOR = ForkJoinPool.commonPool();
 
     /**
      * Sorts the specified portion of the input array using a parallel sorting algorithm.
@@ -39,16 +42,24 @@ final class ParSort {
      * @param to    the ending index (exclusive) of the portion of the array to be sorted
      */
     public static void sort(int[] array, int from, int to) {
-        if (to - from >= cutoff) {
-            CompletableFuture<int[]> completableFuture1 = null;
-            CompletableFuture<int[]> completableFuture2 = null;
-            // TO BE IMPLEMENTED 
-            // END SOLUTION
-            CompletableFuture<int[]> completableFuture = completableFuture1.thenCombine(completableFuture2, ParSort::doMerge);
-            completableFuture.whenComplete((result, throwable) -> System.arraycopy(result, 0, array, from, result.length));
-            completableFuture.join();
-        } else
+        if (to - from <= cutoff) {
             Arrays.sort(array, from, to);
+            return;
+        }
+
+        int mid = from + (to - from) / 2;
+
+        CompletableFuture<int[]> leftSorted = asyncSort(array, from, mid);
+        CompletableFuture<int[]> rightSorted = asyncSort(array, mid, to);
+
+        CompletableFuture<int[]> merged = leftSorted.thenCombine(rightSorted, ParSort::doMerge);
+        merged.whenComplete((result, throwable) -> {
+            if (throwable == null) {
+                System.arraycopy(result, 0, array, from, result.length);
+            } else {
+                throwable.printStackTrace();
+            }
+        }).join();
     }
 
     /**
@@ -62,10 +73,8 @@ final class ParSort {
      * @return a new sorted array containing the elements from the specified range of the input array
      */
     static int[] sortRecursive(int[] array, int from, int to) {
-        int[] result = new int[to - from];
-        // TO BE IMPLEMENTED 
-         // NOTE you need to do something here so that result is the sorted version of array.
-        // END SOLUTION
+        int[] result = Arrays.copyOfRange(array, from, to);
+        Arrays.sort(result);
         return result;
     }
 
@@ -80,14 +89,17 @@ final class ParSort {
      */
     static int[] doMerge(int[] xs1, int[] xs2) {
         int[] result = new int[xs1.length + xs2.length];
-        int i = 0;
-        int j = 0;
-        for (int k = 0; k < result.length; k++) {
-            if (i >= xs1.length) result[k] = xs2[j++];
-            else if (j >= xs2.length) result[k] = xs1[i++];
-            else if (xs2[j] < xs1[i]) result[k] = xs2[j++];
-            else result[k] = xs1[i++];
+        int i = 0, j = 0, k = 0;
+
+        while (i < xs1.length && j < xs2.length) {
+            result[k++] = (xs1[i] <= xs2[j]) ? xs1[i++] : xs2[j++];
         }
+        if (i < xs1.length) {
+            System.arraycopy(xs1, i, result, k, xs1.length - i);
+        } else if (j < xs2.length) {
+            System.arraycopy(xs2, j, result, k, xs2.length - j);
+        }
+
         return result;
     }
 
@@ -102,8 +114,6 @@ final class ParSort {
      * @return a CompletableFuture containing the sorted section of the array
      */
     static CompletableFuture<int[]> asyncSort(int[] array, int from, int to) {
-        return CompletableFuture.supplyAsync(
-                () -> sortRecursive(array, from, to)
-        );
+        return CompletableFuture.supplyAsync(() -> sortRecursive(array, from, to), EXECUTOR);
     }
 }
